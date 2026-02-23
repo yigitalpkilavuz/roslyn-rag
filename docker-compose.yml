@@ -1,0 +1,15 @@
+services:
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - ./data/qdrant:/qdrant/storage
+    restart: unless-stopped
+
+# Ollama runs natively on macOS for Apple Silicon GPU access.
+# Install: brew install ollama
+# Pull models:
+#   ollama pull jina/jina-embeddings-v3
+#   ollama pull llama3:8b

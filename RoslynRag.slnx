@@ -1,0 +1,16 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/RoslynRag.Cli/RoslynRag.Cli.csproj" />
+    <Project Path="src/RoslynRag.Core/RoslynRag.Core.csproj" />
+    <Project Path="src/RoslynRag.Indexing/RoslynRag.Indexing.csproj" />
+    <Project Path="src/RoslynRag.Parsing/RoslynRag.Parsing.csproj" />
+    <Project Path="src/RoslynRag.Query/RoslynRag.Query.csproj" />
+    <Project Path="src/RoslynRag.Storage/RoslynRag.Storage.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/RoslynRag.Indexing.Tests/RoslynRag.Indexing.Tests.csproj" />
+    <Project Path="tests/RoslynRag.Parsing.Tests/RoslynRag.Parsing.Tests.csproj" />
+    <Project Path="tests/RoslynRag.Query.Tests/RoslynRag.Query.Tests.csproj" />
+    <Project Path="tests/RoslynRag.Storage.Tests/RoslynRag.Storage.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,27 @@
+## .NET
+bin/
+obj/
+publish/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+## NuGet
+*.nupkg
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+
+## IDE
+.vs/
+.vscode/
+.idea/
+*.swp
+*~
+
+## macOS
+.DS_Store
+
+## Project data
+.roslyn-rag/
+data/qdrant/
