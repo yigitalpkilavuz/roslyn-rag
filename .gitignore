@@ -9,6 +9,7 @@ publish/
 
 ## NuGet
 *.nupkg
+nupkg/
 **/[Pp]ackages/*
 !**/[Pp]ackages/build/
 

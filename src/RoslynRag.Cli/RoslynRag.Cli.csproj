@@ -5,6 +5,11 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>roslyn-rag</ToolCommandName>
+    <PackageId>RoslynRag</PackageId>
+    <Version>0.1.0</Version>
+    <Description>Local RAG-based code intelligence assistant for .NET</Description>
   </PropertyGroup>
 
   <ItemGroup>

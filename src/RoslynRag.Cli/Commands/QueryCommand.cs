@@ -35,6 +35,9 @@ public static class QueryCommand
             var topK = parseResult.GetValue(topKOption);
             var noLlm = parseResult.GetValue(noLlmOption);
 
+            if (!await HealthCheck.ValidateAsync(ct: ct))
+                return;
+
             var pipeline = pipelineFactory();
             QueryResult? result = null;
 

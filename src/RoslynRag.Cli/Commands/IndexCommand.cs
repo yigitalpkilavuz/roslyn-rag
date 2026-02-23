@@ -34,6 +34,9 @@ public static class IndexCommand
                 return;
             }
 
+            if (!await HealthCheck.ValidateAsync(ct: ct))
+                return;
+
             var pipeline = pipelineFactory();
 
             await AnsiConsole.Status()
