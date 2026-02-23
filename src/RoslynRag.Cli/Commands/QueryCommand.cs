@@ -1,4 +1,5 @@
 using System.CommandLine;
+using RoslynRag.Core.Models;
 using RoslynRag.Query;
 using Spectre.Console;
 
@@ -6,7 +7,7 @@ namespace RoslynRag.Cli.Commands;
 
 public static class QueryCommand
 {
-    public static Command Create(Func<QueryPipeline> pipelineFactory)
+    public static Command Create(Func<QueryPipeline> pipelineFactory, RoslynRagConfig config)
     {
         var questionArg = new Argument<string>("question")
         {
@@ -35,7 +36,10 @@ public static class QueryCommand
             var topK = parseResult.GetValue(topKOption);
             var noLlm = parseResult.GetValue(noLlmOption);
 
-            if (!await HealthCheck.ValidateAsync(ct: ct))
+            if (!await HealthCheck.ValidateAsync(
+                    config.Qdrant.Host, config.Qdrant.RestPort,
+                    config.Ollama.BaseUrl,
+                    [config.Ollama.EmbeddingModel, config.Ollama.LlmModel], ct))
                 return;
 
             var pipeline = pipelineFactory();

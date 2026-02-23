@@ -1,4 +1,5 @@
 using System.CommandLine;
+using RoslynRag.Core.Models;
 using RoslynRag.Indexing;
 using Spectre.Console;
 
@@ -6,7 +7,7 @@ namespace RoslynRag.Cli.Commands;
 
 public static class IndexCommand
 {
-    public static Command Create(Func<IndexingPipeline> pipelineFactory)
+    public static Command Create(Func<IndexingPipeline> pipelineFactory, RoslynRagConfig config)
     {
         var solutionArg = new Argument<FileInfo>("solution")
         {
@@ -34,7 +35,10 @@ public static class IndexCommand
                 return;
             }
 
-            if (!await HealthCheck.ValidateAsync(ct: ct))
+            if (!await HealthCheck.ValidateAsync(
+                    config.Qdrant.Host, config.Qdrant.RestPort,
+                    config.Ollama.BaseUrl,
+                    [config.Ollama.EmbeddingModel, config.Ollama.LlmModel], ct))
                 return;
 
             var pipeline = pipelineFactory();

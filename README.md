@@ -77,6 +77,9 @@ dotnet build
 ## Usage
 
 ```bash
+# Generate a config file with defaults (optional)
+dotnet run --project src/RoslynRag.Cli -- init
+
 # Index a solution
 dotnet run --project src/RoslynRag.Cli -- index path/to/YourSolution.sln
 
@@ -134,20 +137,51 @@ tests/
 
 ## Configuration
 
-Settings are constants in `src/RoslynRag.Cli/Program.cs`. There's no config file yet — change the values directly if you need different defaults.
+Create a `roslyn-rag.json` in your working directory to override defaults. If the file doesn't exist, everything uses sensible defaults.
 
-| Setting | Default | Notes |
-|---|---|---|
-| Qdrant | `localhost:6334` | gRPC port |
-| Ollama | `http://localhost:11434` | |
-| Embedding model | `nomic-embed-text` | 768 dimensions |
-| LLM | `llama3:8b` | Used for answer generation |
-| Batch size | `32` | Embedding batch size per Ollama request |
-| Max chunk size | `4000` chars | Chunks larger than this get split |
+Generate one with all defaults:
+
+```bash
+roslyn-rag init
+```
+
+```json
+{
+  "qdrant": {
+    "host": "localhost",
+    "grpcPort": 6334,
+    "restPort": 6333
+  },
+  "ollama": {
+    "baseUrl": "http://localhost:11434",
+    "embeddingModel": "nomic-embed-text",
+    "embeddingDimensions": 768,
+    "llmModel": "llama3:8b",
+    "batchSize": 32
+  },
+  "indexing": {
+    "dataDirectory": ".roslyn-rag",
+    "maxChunkChars": 4000
+  },
+  "search": {
+    "rrfK": 60
+  }
+}
+```
+
+You only need to include the fields you want to change. For example, to use a different LLM:
+
+```json
+{
+  "ollama": {
+    "llmModel": "llama3:70b"
+  }
+}
+```
 
 ## Limitations
 
 - Only parses C# files (`.cs`). No F#, VB, or other languages.
 - Needs the solution to build. Roslyn opens it as a full workspace, so broken project references will cause warnings or missing files.
-- LLM answer quality depends on the model. `llama3:8b` works for straightforward questions but struggles with complex architectural queries. You can swap in a larger model through `Program.cs`.
+- LLM answer quality depends on the model. `llama3:8b` works for straightforward questions but struggles with complex architectural queries. Swap in a larger model via `roslyn-rag.json`.
 - Chunk splitting is heuristic-based (line boundaries). A tree-sitter integration that splits at AST node boundaries is planned but not implemented yet.
