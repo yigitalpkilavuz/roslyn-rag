@@ -131,6 +131,7 @@ src/
   RoslynRag.Storage/     Qdrant, Lucene, RRF fusion, state persistence
   RoslynRag.Query/       Query pipeline, LLM service, prompt construction
   RoslynRag.Cli/         CLI commands and entry point
+  RoslynRag.Mcp/         MCP server for AI assistant integration
 tests/
   One test project per library
 ```
@@ -178,6 +179,56 @@ You only need to include the fields you want to change. For example, to use a di
   }
 }
 ```
+
+## MCP server
+
+The project includes an MCP (Model Context Protocol) server that lets AI coding assistants — Claude Code, Cursor, Windsurf, etc. — search your indexed codebase directly. The server exposes hybrid search over stdio, no LLM involved on the server side. The calling assistant does its own reasoning with the raw search results.
+
+### Available tools
+
+| Tool | Description |
+|---|---|
+| `search_code` | Hybrid vector + keyword search. Takes a natural language query or identifier, returns ranked code chunks with file paths, line numbers, scores, and source code. |
+| `get_index_status` | Returns index metadata: solution path, last commit, chunk/file counts, embedding model, Qdrant health. |
+| `index_solution` | Triggers full or incremental indexing of a .NET solution. |
+
+### Running the MCP server
+
+```bash
+dotnet run --project src/RoslynRag.Mcp
+```
+
+The server blocks on stdio, waiting for MCP messages. You don't run it manually — configure your AI assistant to launch it.
+
+### Client configuration
+
+**Claude Code** (`~/.claude.json` or project `.mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "roslyn-rag": {
+      "command": "dotnet",
+      "args": ["run", "--project", "/absolute/path/to/src/RoslynRag.Mcp"]
+    }
+  }
+}
+```
+
+**Cursor** (`.cursor/mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "roslyn-rag": {
+      "command": "dotnet",
+      "args": ["run", "--project", "/absolute/path/to/src/RoslynRag.Mcp"]
+    }
+  }
+}
+```
+
+The MCP server reads `roslyn-rag.json` from the current working directory, same as the CLI.
 
 ## Limitations
 

@@ -2,6 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/RoslynRag.Cli/RoslynRag.Cli.csproj" />
     <Project Path="src/RoslynRag.Core/RoslynRag.Core.csproj" />
+    <Project Path="src/RoslynRag.Mcp/RoslynRag.Mcp.csproj" />
     <Project Path="src/RoslynRag.Indexing/RoslynRag.Indexing.csproj" />
     <Project Path="src/RoslynRag.Parsing/RoslynRag.Parsing.csproj" />
     <Project Path="src/RoslynRag.Query/RoslynRag.Query.csproj" />
