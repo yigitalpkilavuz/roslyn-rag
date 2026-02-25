@@ -7,6 +7,7 @@ namespace RoslynRag.Storage;
 public sealed class JsonIndexStateStore : IIndexStateStore
 {
     private readonly string _stateFilePath;
+    private readonly Lock _lock = new();
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -20,38 +21,87 @@ public sealed class JsonIndexStateStore : IIndexStateStore
         _stateFilePath = Path.Combine(dataDirectory, "index-state.json");
     }
 
-    public async Task<IndexState?> LoadAsync(CancellationToken ct = default)
+    public async Task<SolutionIndexState?> LoadAsync(string solutionPath, CancellationToken ct = default)
+    {
+        var state = await LoadAllAsync(ct).ConfigureAwait(false);
+        return state.Solutions.GetValueOrDefault(solutionPath);
+    }
+
+    public async Task<IndexState> LoadAllAsync(CancellationToken ct = default)
     {
         if (!File.Exists(_stateFilePath))
-            return null;
+            return new IndexState();
 
         try
         {
-            await using var stream = File.OpenRead(_stateFilePath);
-            return await JsonSerializer.DeserializeAsync<IndexState>(stream, JsonOptions, ct).ConfigureAwait(false);
+            var json = await File.ReadAllTextAsync(_stateFilePath, ct).ConfigureAwait(false);
+            return JsonSerializer.Deserialize<IndexState>(json, JsonOptions) ?? new IndexState();
         }
         catch (JsonException)
         {
-            // Corrupt state file — treat as if no state exists
-            return null;
+            return new IndexState();
         }
     }
 
-    public async Task SaveAsync(IndexState state, CancellationToken ct = default)
+    public Task SaveAsync(SolutionIndexState state, CancellationToken ct = default)
     {
-        var directory = Path.GetDirectoryName(_stateFilePath);
-        if (directory is not null)
-            Directory.CreateDirectory(directory);
+        lock (_lock)
+        {
+            var root = LoadAllSync();
+            root.Solutions[state.SolutionPath] = state;
+            WriteStateSync(root);
+        }
 
-        await using var stream = File.Create(_stateFilePath);
-        await JsonSerializer.SerializeAsync(stream, state, JsonOptions, ct).ConfigureAwait(false);
+        return Task.CompletedTask;
     }
 
-    public Task DeleteAsync(CancellationToken ct = default)
+    public Task DeleteAsync(string solutionPath, CancellationToken ct = default)
+    {
+        lock (_lock)
+        {
+            var root = LoadAllSync();
+            root.Solutions.Remove(solutionPath);
+
+            if (root.Solutions.Count == 0 && File.Exists(_stateFilePath))
+                File.Delete(_stateFilePath);
+            else
+                WriteStateSync(root);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public Task DeleteAllAsync(CancellationToken ct = default)
     {
         if (File.Exists(_stateFilePath))
             File.Delete(_stateFilePath);
 
         return Task.CompletedTask;
+    }
+
+    private IndexState LoadAllSync()
+    {
+        if (!File.Exists(_stateFilePath))
+            return new IndexState();
+
+        try
+        {
+            var json = File.ReadAllText(_stateFilePath);
+            return JsonSerializer.Deserialize<IndexState>(json, JsonOptions) ?? new IndexState();
+        }
+        catch (JsonException)
+        {
+            return new IndexState();
+        }
+    }
+
+    private void WriteStateSync(IndexState state)
+    {
+        var directory = Path.GetDirectoryName(_stateFilePath);
+        if (directory is not null)
+            Directory.CreateDirectory(directory);
+
+        var json = JsonSerializer.Serialize(state, JsonOptions);
+        File.WriteAllText(_stateFilePath, json);
     }
 }

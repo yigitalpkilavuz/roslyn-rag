@@ -27,7 +27,8 @@ public sealed class RoslynParsePipeline : IParsePipeline
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(solutionPath);
 
-        var solutionRoot = Path.GetDirectoryName(Path.GetFullPath(solutionPath))
+        var absoluteSolutionPath = Path.GetFullPath(solutionPath);
+        var solutionRoot = Path.GetDirectoryName(absoluteSolutionPath)
             ?? throw new ArgumentException("Cannot determine solution directory", nameof(solutionPath));
 
         using var workspace = MSBuildWorkspace.Create();
@@ -56,7 +57,7 @@ public sealed class RoslynParsePipeline : IParsePipeline
                 var root = await document.GetSyntaxRootAsync(token).ConfigureAwait(false);
                 if (root is null) return;
 
-                var walker = new MethodChunkWalker(document.FilePath!, solutionRoot);
+                var walker = new MethodChunkWalker(document.FilePath!, solutionRoot, absoluteSolutionPath);
                 walker.Visit(root);
 
                 var chunks = ApplyChunkSplitting(walker.Chunks);
@@ -78,7 +79,8 @@ public sealed class RoslynParsePipeline : IParsePipeline
         ArgumentException.ThrowIfNullOrWhiteSpace(solutionPath);
         ArgumentNullException.ThrowIfNull(relativeFilePaths);
 
-        var solutionRoot = Path.GetDirectoryName(Path.GetFullPath(solutionPath))
+        var absoluteSolutionPath = Path.GetFullPath(solutionPath);
+        var solutionRoot = Path.GetDirectoryName(absoluteSolutionPath)
             ?? throw new ArgumentException("Cannot determine solution directory", nameof(solutionPath));
 
         using var workspace = MSBuildWorkspace.Create();
@@ -113,7 +115,7 @@ public sealed class RoslynParsePipeline : IParsePipeline
                 var root = await document.GetSyntaxRootAsync(token).ConfigureAwait(false);
                 if (root is null) return;
 
-                var walker = new MethodChunkWalker(document.FilePath!, solutionRoot);
+                var walker = new MethodChunkWalker(document.FilePath!, solutionRoot, absoluteSolutionPath);
                 walker.Visit(root);
 
                 var chunks = ApplyChunkSplitting(walker.Chunks);

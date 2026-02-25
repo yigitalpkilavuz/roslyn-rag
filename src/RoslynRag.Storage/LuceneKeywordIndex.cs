@@ -55,6 +55,7 @@ public sealed class LuceneKeywordIndex : IKeywordIndex, IDisposable
                 var doc = new Document
                 {
                     new StringField("id", chunk.Id, Field.Store.YES),
+                    new StringField("solution_id", chunk.SolutionId, Field.Store.YES),
                     new StringField("file_path", chunk.FilePath, Field.Store.YES),
                     new TextField("embedding_text", chunk.EmbeddingText, Field.Store.NO),
                     new StringField("class_name", chunk.ClassName, Field.Store.YES),
@@ -71,7 +72,7 @@ public sealed class LuceneKeywordIndex : IKeywordIndex, IDisposable
         }
     }
 
-    public IReadOnlyList<SearchResult> Search(string queryText, int topK = 20)
+    public IReadOnlyList<SearchResult> Search(string queryText, int topK = 20, string? solutionId = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(queryText);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(topK, 0);
@@ -98,6 +99,16 @@ public sealed class LuceneKeywordIndex : IKeywordIndex, IDisposable
                 return [];
             }
 
+            if (solutionId is not null)
+            {
+                var filtered = new BooleanQuery
+                {
+                    { query, Occur.MUST },
+                    { new TermQuery(new Term("solution_id", solutionId)), Occur.MUST }
+                };
+                query = filtered;
+            }
+
             var hits = searcher.Search(query, topK);
             var results = new List<SearchResult>(hits.ScoreDocs.Length);
 
@@ -111,6 +122,7 @@ public sealed class LuceneKeywordIndex : IKeywordIndex, IDisposable
                 {
                     ChunkId = chunkId,
                     Score = hit.Score,
+                    SolutionId = doc.Get("solution_id") ?? string.Empty,
                     FilePath = doc.Get("file_path") ?? string.Empty,
                     ClassName = doc.Get("class_name") ?? string.Empty,
                     MethodName = doc.Get("method_name") ?? string.Empty,
@@ -124,7 +136,7 @@ public sealed class LuceneKeywordIndex : IKeywordIndex, IDisposable
         }
     }
 
-    public void DeleteByFilePaths(IReadOnlySet<string> filePaths)
+    public void DeleteByFilePaths(string solutionId, IReadOnlySet<string> filePaths)
     {
         ArgumentNullException.ThrowIfNull(filePaths);
         var writer = GetWriter();
@@ -133,9 +145,25 @@ public sealed class LuceneKeywordIndex : IKeywordIndex, IDisposable
         {
             foreach (var filePath in filePaths)
             {
-                writer.DeleteDocuments(new Term("file_path", filePath));
+                var query = new BooleanQuery
+                {
+                    { new TermQuery(new Term("solution_id", solutionId)), Occur.MUST },
+                    { new TermQuery(new Term("file_path", filePath)), Occur.MUST }
+                };
+                writer.DeleteDocuments(query);
             }
 
+            writer.Commit();
+        }
+    }
+
+    public void DeleteBySolutionId(string solutionId)
+    {
+        var writer = GetWriter();
+
+        lock (_lock)
+        {
+            writer.DeleteDocuments(new Term("solution_id", solutionId));
             writer.Commit();
         }
     }

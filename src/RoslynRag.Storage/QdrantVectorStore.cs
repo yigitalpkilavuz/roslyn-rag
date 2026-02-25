@@ -31,18 +31,21 @@ public sealed class QdrantVectorStore : IVectorStore, IDisposable
     {
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(vectorSize, 0);
         var collections = await _client.ListCollectionsAsync(ct).ConfigureAwait(false);
-        if (collections.Any(c => c == CollectionName))
-            return;
+        if (!collections.Any(c => c == CollectionName))
+        {
+            await _client.CreateCollectionAsync(
+                CollectionName,
+                new VectorParams
+                {
+                    Size = (ulong)vectorSize,
+                    Distance = Distance.Cosine
+                },
+                cancellationToken: ct).ConfigureAwait(false);
+        }
 
-        await _client.CreateCollectionAsync(
-            CollectionName,
-            new VectorParams
-            {
-                Size = (ulong)vectorSize,
-                Distance = Distance.Cosine
-            },
-            cancellationToken: ct).ConfigureAwait(false);
-
+        // Idempotent — ensures indexes exist even on pre-existing collections
+        await _client.CreatePayloadIndexAsync(CollectionName, "solution_id",
+            PayloadSchemaType.Keyword, cancellationToken: ct).ConfigureAwait(false);
         await _client.CreatePayloadIndexAsync(CollectionName, "file_path",
             PayloadSchemaType.Keyword, cancellationToken: ct).ConfigureAwait(false);
         await _client.CreatePayloadIndexAsync(CollectionName, "namespace",
@@ -92,14 +95,35 @@ public sealed class QdrantVectorStore : IVectorStore, IDisposable
     public async Task<IReadOnlyList<SearchResult>> SearchAsync(
         float[] queryVector,
         int topK = 20,
+        string? solutionId = null,
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(queryVector);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(topK, 0);
 
+        Filter? filter = null;
+        if (solutionId is not null)
+        {
+            filter = new Filter
+            {
+                Must =
+                {
+                    new Condition
+                    {
+                        Field = new FieldCondition
+                        {
+                            Key = "solution_id",
+                            Match = new Match { Keyword = solutionId }
+                        }
+                    }
+                }
+            };
+        }
+
         var results = await _client.SearchAsync(
             CollectionName,
             queryVector,
+            filter: filter,
             limit: (ulong)topK,
             cancellationToken: ct).ConfigureAwait(false);
 
@@ -110,6 +134,7 @@ public sealed class QdrantVectorStore : IVectorStore, IDisposable
             {
                 ChunkId = r.Id.Uuid,
                 Score = r.Score,
+                SolutionId = GetPayloadString(payload, "solution_id"),
                 FilePath = GetPayloadString(payload, "file_path"),
                 ClassName = GetPayloadString(payload, "class_name"),
                 MethodName = GetPayloadString(payload, "method_name"),
@@ -122,6 +147,7 @@ public sealed class QdrantVectorStore : IVectorStore, IDisposable
     }
 
     public async Task DeleteByFilePathsAsync(
+        string solutionId,
         IReadOnlySet<string> filePaths,
         CancellationToken ct = default)
     {
@@ -139,6 +165,14 @@ public sealed class QdrantVectorStore : IVectorStore, IDisposable
                             {
                                 Field = new FieldCondition
                                 {
+                                    Key = "solution_id",
+                                    Match = new Match { Keyword = solutionId }
+                                }
+                            },
+                            new Condition
+                            {
+                                Field = new FieldCondition
+                                {
                                     Key = "file_path",
                                     Match = new Match { Keyword = filePath }
                                 }
@@ -147,6 +181,29 @@ public sealed class QdrantVectorStore : IVectorStore, IDisposable
                     },
                     cancellationToken: token).ConfigureAwait(false);
             }).ConfigureAwait(false);
+    }
+
+    public async Task DeleteBySolutionIdAsync(
+        string solutionId,
+        CancellationToken ct = default)
+    {
+        await _client.DeleteAsync(
+            CollectionName,
+            new Filter
+            {
+                Must =
+                {
+                    new Condition
+                    {
+                        Field = new FieldCondition
+                        {
+                            Key = "solution_id",
+                            Match = new Match { Keyword = solutionId }
+                        }
+                    }
+                }
+            },
+            cancellationToken: ct).ConfigureAwait(false);
     }
 
     public async Task DeleteCollectionAsync(CancellationToken ct = default)
@@ -170,6 +227,7 @@ public sealed class QdrantVectorStore : IVectorStore, IDisposable
         Vectors = vector,
         Payload =
         {
+            ["solution_id"] = c.SolutionId,
             ["file_path"] = c.FilePath,
             ["namespace"] = c.Namespace,
             ["class_name"] = c.ClassName,

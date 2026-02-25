@@ -35,8 +35,9 @@ public sealed class IndexingPipeline
         IProgress<(int completed, int total)>? embeddingProgress = null,
         CancellationToken ct = default)
     {
-        var solutionDir = Path.GetDirectoryName(Path.GetFullPath(solutionPath))!;
-        var state = await _stateStore.LoadAsync(ct).ConfigureAwait(false);
+        var absoluteSolutionPath = Path.GetFullPath(solutionPath);
+        var solutionDir = Path.GetDirectoryName(absoluteSolutionPath)!;
+        var state = await _stateStore.LoadAsync(absoluteSolutionPath, ct).ConfigureAwait(false);
         string? currentCommitSha = null;
 
         try
@@ -58,18 +59,18 @@ public sealed class IndexingPipeline
 
         if (isIncremental)
         {
-            await IncrementalIndexAsync(solutionPath, solutionDir, state!, currentCommitSha!,
+            await IncrementalIndexAsync(absoluteSolutionPath, solutionDir, state!, currentCommitSha!,
                 statusProgress, embeddingProgress, ct).ConfigureAwait(false);
         }
         else
         {
-            await FullIndexAsync(solutionPath, currentCommitSha,
+            await FullIndexAsync(absoluteSolutionPath, currentCommitSha,
                 statusProgress, embeddingProgress, ct).ConfigureAwait(false);
         }
     }
 
     private async Task FullIndexAsync(
-        string solutionPath,
+        string absoluteSolutionPath,
         string? commitSha,
         IProgress<string>? statusProgress,
         IProgress<(int completed, int total)>? embeddingProgress,
@@ -84,7 +85,7 @@ public sealed class IndexingPipeline
         var parseProgress = new Progress<(int processed, int total, string currentFile)>(p =>
             statusProgress?.Report($"Parsing [{p.processed}/{p.total}]: {Path.GetFileName(p.currentFile)}"));
 
-        var chunks = await _parser.ParseSolutionAsync(solutionPath, parseProgress, ct).ConfigureAwait(false);
+        var chunks = await _parser.ParseSolutionAsync(absoluteSolutionPath, parseProgress, ct).ConfigureAwait(false);
         statusProgress?.Report($"Parsed {chunks.Count} chunks.");
 
         if (chunks.Count == 0)
@@ -103,9 +104,9 @@ public sealed class IndexingPipeline
         _keywordIndex.IndexChunks(chunks);
 
         var distinctFiles = chunks.Select(c => c.FilePath).Distinct().Count();
-        await _stateStore.SaveAsync(new IndexState
+        await _stateStore.SaveAsync(new SolutionIndexState
         {
-            SolutionPath = Path.GetFullPath(solutionPath),
+            SolutionPath = absoluteSolutionPath,
             LastIndexedCommitSha = commitSha,
             IndexedAt = DateTimeOffset.UtcNow,
             TotalChunks = chunks.Count,
@@ -118,9 +119,9 @@ public sealed class IndexingPipeline
     }
 
     private async Task IncrementalIndexAsync(
-        string solutionPath,
+        string absoluteSolutionPath,
         string solutionDir,
-        IndexState state,
+        SolutionIndexState state,
         string currentCommitSha,
         IProgress<string>? statusProgress,
         IProgress<(int completed, int total)>? embeddingProgress,
@@ -146,15 +147,15 @@ public sealed class IndexingPipeline
         if (filesToDelete.Count > 0)
         {
             statusProgress?.Report($"Removing stale chunks for {filesToDelete.Count} files...");
-            await _vectorStore.DeleteByFilePathsAsync(filesToDelete, ct).ConfigureAwait(false);
-            _keywordIndex.DeleteByFilePaths(filesToDelete);
+            await _vectorStore.DeleteByFilePathsAsync(absoluteSolutionPath, filesToDelete, ct).ConfigureAwait(false);
+            _keywordIndex.DeleteByFilePaths(absoluteSolutionPath, filesToDelete);
         }
 
         var filesToParse = new HashSet<string>(diff.AddedFiles.Concat(diff.ModifiedFiles), StringComparer.OrdinalIgnoreCase);
         if (filesToParse.Count > 0)
         {
             statusProgress?.Report($"Parsing {filesToParse.Count} changed files...");
-            var chunks = await _parser.ParseFilesAsync(solutionPath, filesToParse, ct).ConfigureAwait(false);
+            var chunks = await _parser.ParseFilesAsync(absoluteSolutionPath, filesToParse, ct).ConfigureAwait(false);
 
             if (chunks.Count > 0)
             {
@@ -167,12 +168,11 @@ public sealed class IndexingPipeline
             }
         }
 
-        var totalChunks = await _vectorStore.GetPointCountAsync(ct).ConfigureAwait(false);
         state.LastIndexedCommitSha = currentCommitSha;
         state.IndexedAt = DateTimeOffset.UtcNow;
-        state.TotalChunks = (int)totalChunks;
+        state.TotalFiles += diff.AddedFiles.Count - diff.DeletedFiles.Count;
         await _stateStore.SaveAsync(state, ct).ConfigureAwait(false);
 
-        statusProgress?.Report($"Incremental index complete. Total chunks: {totalChunks}");
+        statusProgress?.Report("Incremental index complete.");
     }
 }

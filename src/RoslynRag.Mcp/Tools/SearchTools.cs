@@ -19,14 +19,15 @@ public static class SearchTools
         ISearchFusion fusion,
         [Description("Natural language query or code identifier to search for")] string query,
         [Description("Number of results to return (default: 10)")] int topK = 10,
+        [Description("Optional: absolute path to .sln file to scope search to a single solution")] string? solutionPath = null,
         CancellationToken ct = default)
     {
         keywordIndex.Initialize();
 
         var queryVector = await embedding.EmbedAsync(query, ct).ConfigureAwait(false);
 
-        var vectorTask = vectorStore.SearchAsync(queryVector, topK * 2, ct);
-        var bm25Task = Task.Run(() => keywordIndex.Search(query, topK * 2), ct);
+        var vectorTask = vectorStore.SearchAsync(queryVector, topK * 2, solutionId: solutionPath, ct);
+        var bm25Task = Task.Run(() => keywordIndex.Search(query, topK * 2, solutionId: solutionPath), ct);
         await Task.WhenAll(vectorTask, bm25Task).ConfigureAwait(false);
 
         var results = fusion.Fuse(await vectorTask, await bm25Task, topK);

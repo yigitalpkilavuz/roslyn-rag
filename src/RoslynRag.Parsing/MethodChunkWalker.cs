@@ -11,6 +11,7 @@ public sealed class MethodChunkWalker : CSharpSyntaxWalker
 {
     private readonly string _filePath;
     private readonly string _solutionRoot;
+    private readonly string _solutionPath;
     private readonly List<CodeChunk> _chunks = new();
 
     private string _currentNamespace = string.Empty;
@@ -20,10 +21,11 @@ public sealed class MethodChunkWalker : CSharpSyntaxWalker
 
     public IReadOnlyList<CodeChunk> Chunks => _chunks;
 
-    public MethodChunkWalker(string filePath, string solutionRoot)
+    public MethodChunkWalker(string filePath, string solutionRoot, string solutionPath)
     {
         _filePath = filePath;
         _solutionRoot = solutionRoot;
+        _solutionPath = solutionPath;
     }
 
     public override void VisitNamespaceDeclaration(NamespaceDeclarationSyntax node)
@@ -138,6 +140,7 @@ public sealed class MethodChunkWalker : CSharpSyntaxWalker
         _chunks.Add(new CodeChunk
         {
             Id = chunkId,
+            SolutionId = _solutionPath,
             FilePath = relativePath,
             Namespace = _currentNamespace,
             ClassName = _currentClassName,
@@ -178,6 +181,7 @@ public sealed class MethodChunkWalker : CSharpSyntaxWalker
         _chunks.Add(new CodeChunk
         {
             Id = chunkId,
+            SolutionId = _solutionPath,
             FilePath = relativePath,
             Namespace = _currentNamespace,
             ClassName = _currentClassName,
@@ -310,9 +314,9 @@ public sealed class MethodChunkWalker : CSharpSyntaxWalker
         return _filePath.Replace('\\', '/');
     }
 
-    private static string GenerateChunkId(string filePath, int startLine)
+    private string GenerateChunkId(string filePath, int startLine)
     {
-        var input = $"{filePath}:{startLine}";
+        var input = $"{_solutionPath}:{filePath}:{startLine}";
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(input));
         return Convert.ToHexStringLower(hash);
     }

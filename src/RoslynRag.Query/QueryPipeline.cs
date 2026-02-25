@@ -36,6 +36,7 @@ public sealed class QueryPipeline
         string question,
         int topK = 10,
         bool useLlm = true,
+        string? solutionId = null,
         CancellationToken ct = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(question);
@@ -45,8 +46,8 @@ public sealed class QueryPipeline
 
         _keywordIndex.Initialize();
 
-        var vectorTask = _vectorStore.SearchAsync(queryVector, topK * 2, ct);
-        var bm25Task = Task.Run(() => _keywordIndex.Search(question, topK * 2), ct);
+        var vectorTask = _vectorStore.SearchAsync(queryVector, topK * 2, solutionId, ct);
+        var bm25Task = Task.Run(() => _keywordIndex.Search(question, topK * 2, solutionId), ct);
         await Task.WhenAll(vectorTask, bm25Task).ConfigureAwait(false);
         var vectorResults = await vectorTask.ConfigureAwait(false);
         var bm25Results = await bm25Task.ConfigureAwait(false);

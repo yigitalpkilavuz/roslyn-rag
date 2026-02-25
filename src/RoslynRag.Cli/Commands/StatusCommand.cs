@@ -13,35 +13,39 @@ public static class StatusCommand
         command.SetAction(async (_, ct) =>
         {
             var stateStore = stateStoreFactory();
-            var state = await stateStore.LoadAsync(ct);
+            var state = await stateStore.LoadAllAsync(ct);
 
-            if (state is null)
+            if (state.Solutions.Count == 0)
             {
                 AnsiConsole.MarkupLine("[yellow]No index found. Run 'index' first.[/]");
                 return;
             }
 
-            var table = new Table()
-                .Border(TableBorder.Rounded)
-                .Title("Index Status")
-                .AddColumn("Property")
-                .AddColumn("Value");
+            foreach (var (_, solutionState) in state.Solutions.OrderBy(s => s.Key))
+            {
+                var table = new Table()
+                    .Border(TableBorder.Rounded)
+                    .Title($"[bold]{Markup.Escape(Path.GetFileName(solutionState.SolutionPath))}[/]")
+                    .AddColumn("Property")
+                    .AddColumn("Value");
 
-            table.AddRow("Solution", state.SolutionPath);
-            table.AddRow("Last Commit", state.LastIndexedCommitSha ?? "N/A");
-            table.AddRow("Indexed At", state.IndexedAt.ToString("yyyy-MM-dd HH:mm:ss UTC"));
-            table.AddRow("Total Chunks", state.TotalChunks.ToString("N0"));
-            table.AddRow("Total Files", state.TotalFiles.ToString("N0"));
-            table.AddRow("Embedding Model", state.EmbeddingModel);
-            table.AddRow("Dimensions", state.EmbeddingDimensions.ToString());
+                table.AddRow("Solution", Markup.Escape(solutionState.SolutionPath));
+                table.AddRow("Last Commit", solutionState.LastIndexedCommitSha ?? "N/A");
+                table.AddRow("Indexed At", solutionState.IndexedAt.ToString("yyyy-MM-dd HH:mm:ss UTC"));
+                table.AddRow("Total Chunks", solutionState.TotalChunks.ToString("N0"));
+                table.AddRow("Total Files", solutionState.TotalFiles.ToString("N0"));
+                table.AddRow("Embedding Model", solutionState.EmbeddingModel);
+                table.AddRow("Dimensions", solutionState.EmbeddingDimensions.ToString());
 
-            AnsiConsole.Write(table);
+                AnsiConsole.Write(table);
+                AnsiConsole.WriteLine();
+            }
 
             try
             {
                 var vectorStore = vectorStoreFactory();
                 var pointCount = await vectorStore.GetPointCountAsync(ct);
-                AnsiConsole.MarkupLine($"[green]Qdrant:[/] Connected ({pointCount:N0} points)");
+                AnsiConsole.MarkupLine($"[green]Qdrant:[/] Connected ({pointCount:N0} points total)");
             }
             catch (Exception ex)
             {

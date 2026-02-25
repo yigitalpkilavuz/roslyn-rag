@@ -22,12 +22,17 @@ public static class QueryCommand
         {
             Description = "Return raw chunks without LLM synthesis"
         };
+        var solutionOption = new Option<string?>("--solution", "-s")
+        {
+            Description = "Filter results to a specific solution"
+        };
 
         var command = new Command("query", "Ask a question about the indexed codebase")
         {
             questionArg,
             topKOption,
-            noLlmOption
+            noLlmOption,
+            solutionOption
         };
 
         command.SetAction(async (parseResult, ct) =>
@@ -35,6 +40,9 @@ public static class QueryCommand
             var question = parseResult.GetValue(questionArg)!;
             var topK = parseResult.GetValue(topKOption);
             var noLlm = parseResult.GetValue(noLlmOption);
+            var solutionFilter = parseResult.GetValue(solutionOption);
+            if (solutionFilter is not null)
+                solutionFilter = Path.GetFullPath(solutionFilter);
 
             if (!await HealthCheck.ValidateAsync(
                     config.Qdrant.Host, config.Qdrant.RestPort,
@@ -49,7 +57,7 @@ public static class QueryCommand
                 .Spinner(Spinner.Known.Dots)
                 .StartAsync("Searching...", async _ =>
                 {
-                    result = await pipeline.QueryAsync(question, topK, useLlm: !noLlm, ct: ct);
+                    result = await pipeline.QueryAsync(question, topK, useLlm: !noLlm, solutionId: solutionFilter, ct: ct);
                 });
 
             if (result is null) return;

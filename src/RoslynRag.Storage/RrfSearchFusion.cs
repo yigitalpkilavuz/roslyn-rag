@@ -60,6 +60,7 @@ public sealed class RrfSearchFusion : ISearchFusion
                 FusedScore = s.rrfScore,
                 VectorScore = s.vectorScore,
                 Bm25Score = s.bm25Score,
+                SolutionId = s.result.SolutionId,
                 FilePath = s.result.FilePath,
                 ClassName = s.result.ClassName,
                 MethodName = s.result.MethodName,

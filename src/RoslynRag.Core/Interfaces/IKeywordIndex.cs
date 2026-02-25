@@ -6,7 +6,8 @@ public interface IKeywordIndex
 {
     void Initialize();
     void IndexChunks(IReadOnlyList<CodeChunk> chunks);
-    IReadOnlyList<SearchResult> Search(string queryText, int topK = 20);
-    void DeleteByFilePaths(IReadOnlySet<string> filePaths);
+    IReadOnlyList<SearchResult> Search(string queryText, int topK = 20, string? solutionId = null);
+    void DeleteByFilePaths(string solutionId, IReadOnlySet<string> filePaths);
+    void DeleteBySolutionId(string solutionId);
     void DeleteAll();
 }

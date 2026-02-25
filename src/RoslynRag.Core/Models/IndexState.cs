@@ -1,6 +1,6 @@
 namespace RoslynRag.Core.Models;
 
-public sealed class IndexState
+public sealed class SolutionIndexState
 {
     public required string SolutionPath { get; set; }
     public string? LastIndexedCommitSha { get; set; }
@@ -10,4 +10,9 @@ public sealed class IndexState
     public required string EmbeddingModel { get; set; }
     public int EmbeddingDimensions { get; set; }
     public Dictionary<string, string> FileHashes { get; set; } = new();
+}
+
+public sealed class IndexState
+{
+    public Dictionary<string, SolutionIndexState> Solutions { get; set; } = new();
 }

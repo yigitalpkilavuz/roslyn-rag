@@ -6,9 +6,11 @@ A local RAG system for .NET codebases. It parses your solution with Roslyn, buil
 
 You point it at a `.sln` or `.slnx` file. It opens the solution with Roslyn's compiler APIs, walks the syntax trees, and extracts chunks: class headers, methods, constructors — each with its namespace, dependencies, base types, and attributes attached. Those chunks get embedded and stored in Qdrant for vector search, and indexed in Lucene.NET for BM25 keyword search.
 
+You can index multiple solutions into the same store. Each chunk is tagged with its solution path, so you can search across all your projects at once or scope queries to a single solution.
+
 When you ask a question, it runs both searches in parallel, merges the results with Reciprocal Rank Fusion (RRF), and feeds the top matches as context to a local LLM. The answer comes back grounded in your actual code, with file paths and line numbers.
 
-It also tracks the git commit SHA after each indexing run. Next time you index, it diffs against the last commit and only re-processes changed files.
+It also tracks the git commit SHA per solution after each indexing run. Next time you index, it diffs against the last commit and only re-processes changed files.
 
 ## How it works
 
@@ -83,11 +85,17 @@ dotnet run --project src/RoslynRag.Cli -- init
 # Index a solution
 dotnet run --project src/RoslynRag.Cli -- index path/to/YourSolution.sln
 
+# Index another solution into the same store
+dotnet run --project src/RoslynRag.Cli -- index path/to/AnotherSolution.sln
+
 # Force full re-index (skip incremental)
 dotnet run --project src/RoslynRag.Cli -- index path/to/YourSolution.sln --full
 
-# Ask a question
+# Ask a question (searches all indexed solutions)
 dotnet run --project src/RoslynRag.Cli -- query "How does incremental indexing work?"
+
+# Scope query to a single solution
+dotnet run --project src/RoslynRag.Cli -- query "error handling" --solution path/to/YourSolution.sln
 
 # Get raw search results without LLM
 dotnet run --project src/RoslynRag.Cli -- query "QueryPipeline" --no-llm
@@ -95,8 +103,11 @@ dotnet run --project src/RoslynRag.Cli -- query "QueryPipeline" --no-llm
 # Return more results
 dotnet run --project src/RoslynRag.Cli -- query "error handling" --top-k 20
 
-# Check index status
+# Check index status (shows all indexed solutions)
 dotnet run --project src/RoslynRag.Cli -- status
+
+# Reset a specific solution
+dotnet run --project src/RoslynRag.Cli -- reset --solution path/to/YourSolution.sln
 
 # Delete everything and start fresh
 dotnet run --project src/RoslynRag.Cli -- reset
@@ -117,8 +128,11 @@ Then:
 
 ```bash
 roslyn-rag index path/to/YourSolution.sln
+roslyn-rag index path/to/AnotherSolution.sln
 roslyn-rag query "What does the Fuse method do?"
+roslyn-rag query "auth flow" --solution path/to/YourSolution.sln
 roslyn-rag status
+roslyn-rag reset --solution path/to/YourSolution.sln
 ```
 
 ## Project structure
@@ -188,8 +202,8 @@ The project includes an MCP (Model Context Protocol) server that lets AI coding 
 
 | Tool | Description |
 |---|---|
-| `search_code` | Hybrid vector + keyword search. Takes a natural language query or identifier, returns ranked code chunks with file paths, line numbers, scores, and source code. |
-| `get_index_status` | Returns index metadata: solution path, last commit, chunk/file counts, embedding model, Qdrant health. |
+| `search_code` | Hybrid vector + keyword search. Takes a natural language query or identifier, returns ranked code chunks with file paths, line numbers, scores, and source code. Optional `solutionPath` to scope to one solution. |
+| `get_index_status` | Returns index metadata for all indexed solutions: solution paths, last commits, chunk/file counts, embedding model, Qdrant health. |
 | `index_solution` | Triggers full or incremental indexing of a .NET solution. |
 
 ### Running the MCP server

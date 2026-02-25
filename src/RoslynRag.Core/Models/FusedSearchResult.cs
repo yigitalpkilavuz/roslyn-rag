@@ -6,6 +6,7 @@ public sealed record FusedSearchResult
     public required float FusedScore { get; init; }
     public required float? VectorScore { get; init; }
     public required float? Bm25Score { get; init; }
+    public required string SolutionId { get; init; }
     public required string FilePath { get; init; }
     public required string ClassName { get; init; }
     public required string MethodName { get; init; }

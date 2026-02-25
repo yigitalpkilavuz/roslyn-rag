@@ -10,6 +10,7 @@ public enum ChunkKind
 public sealed record CodeChunk
 {
     public required string Id { get; init; }
+    public required string SolutionId { get; init; }
     public required string FilePath { get; init; }
     public required string Namespace { get; init; }
     public required string ClassName { get; init; }

@@ -14,10 +14,16 @@ public interface IVectorStore
     Task<IReadOnlyList<SearchResult>> SearchAsync(
         float[] queryVector,
         int topK = 20,
+        string? solutionId = null,
         CancellationToken ct = default);
 
     Task DeleteByFilePathsAsync(
+        string solutionId,
         IReadOnlySet<string> filePaths,
+        CancellationToken ct = default);
+
+    Task DeleteBySolutionIdAsync(
+        string solutionId,
         CancellationToken ct = default);
 
     Task DeleteCollectionAsync(CancellationToken ct = default);
